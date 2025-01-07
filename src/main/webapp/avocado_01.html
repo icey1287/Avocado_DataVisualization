@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果价格按类型分布图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%; height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="height: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+
+<div id="staticExplanation" style="position: absolute; bottom: 0%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图直观显示了按类型（常规或有机）划分的牛油果价格分布情况。 将鼠标悬停在条形图上，可查看每个价格区间的更多信息。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    // 创建 ECharts 实例
+    var myChart = echarts.init(document.getElementById('main'));
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    // 显示图表加载前的动画
+    myChart.showLoading();
+
+    // 发起 Ajax 请求获取从后台返回的 JSON 数据
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                // 隐藏加载动画
+                myChart.hideLoading();
+
+                // 处理数据
+                var dataByType = {};
+
+                // 分类数据，根据 'type' 分类
+                result.forEach(function(item) {
+                    if (!dataByType[item.type]) {
+                        dataByType[item.type] = [];
+                    }
+                    dataByType[item.type].push(item.averagePrice);
+                });
+
+                // 构建 ECharts 图表的 series 数据
+                var seriesData = [];
+                var gridData = [];
+                var types = Object.keys(dataByType);
+                var maxBins = 15;  // 用来创建直方图的价格区间数量
+                var binWidth = 0.2; // 设置每个价格区间的宽度
+
+                types.forEach(function(type, index) {
+                    // 获取每个类型的数据并计算分布
+                    var prices = dataByType[type];
+                    var bins = createPriceBins(prices, maxBins, binWidth);
+
+                    // 设置每个类型的颜色
+                    var color = getColorForType(type);
+
+                    // 添加柱状图数据
+                    seriesData.push({
+                        name: type,
+                        type: 'bar',  // 直方图类型
+                        data: bins.counts,
+                        emphasis: {
+                            itemStyle: {
+                                color: 'rgba(255, 99, 132, 0.8)'  // 设置 hover 时的颜色
+                            }
+                        },
+                        itemStyle: {
+                            color: color  // 设置系列颜色
+                        }
+                    });
+
+                    // 添加平滑曲线数据
+                    seriesData.push({
+                        name: type + ' (Smooth Curve)', // 曲线名称
+                        type: 'line',  // 线类型
+                        data: bins.counts,  // 使用柱状图的数据
+                        smooth: true,  // 设置平滑曲线
+                        symbol: 'none',  // 去除曲线上的点
+                        lineStyle: {
+                            color: color,
+                            width: 2
+                        },
+                        // 只为平滑曲线设置显示而非系列
+                        showSymbol: false,
+                        tooltip: {
+                            show: false
+                        }
+                    });
+
+                    // 设置每个 type 的 grid
+                    gridData.push({
+                        top: index * 300,  // 每个 type 占用的空间
+                        height: 550,
+                        left: '5%',
+                        right: '5%'
+                    });
+                });
+
+                // 设置 ECharts 图表配置
+                myChart.setOption({
+                    title: {
+                        text: '牛油果价格按类型分布图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'  // 用阴影作为指示器
+                        }
+                    },
+                    legend: {
+                        data: types,  // 图例仅包含柱状图类型
+                        bottom: '20%',  // 调整图例的位置，稍微靠上一些
+                        itemWidth: 10,
+                        itemHeight: 10,
+                        textStyle: {
+                            fontSize: 12
+                        }
+                    },
+                    grid: gridData,
+                    xAxis: {
+                        type: 'category',
+                        data: Array.from({ length: maxBins }, (_, i) => {
+                            var minPrice = 0.4 + i * binWidth;  // 价格区间最小值
+                            var maxPrice = minPrice + binWidth;  // 价格区间最大值
+                            return `${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`;
+                        }),  // 每个价格区间
+                        axisLabel: {
+                            rotate: 45,
+                            fontSize: 10
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            formatter: '{value}'
+                        }
+                    },
+                    series: seriesData
+                });
+
+                // 添加 tooltip 事件监听
+                myChart.on('mouseover', function (params) {
+                    if (params.componentType === 'series' && params.seriesType === 'bar') {
+                        var seriesName = params.seriesName;  // 系列名称
+                        var dataName = params.name;  // 数据点名称
+                        var value = params.value;  // 数据点值
+
+                        // 动态更新页面底部的显示内容
+                        document.getElementById('dataDisplay').innerHTML =
+                            'Type: ' + seriesName + ' | Price Range: ' + dataName + ' | Count: ' + value;
+                    }
+                });
+
+                // 添加鼠标移开事件来清除底部显示
+                myChart.on('mouseout', function () {
+                    document.getElementById('dataDisplay').innerHTML = '';
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+
+    // 根据价格数据创建价格区间
+    function createPriceBins(data, maxBins, binWidth) {
+        var minValue = Math.min(...data);
+        var maxValue = Math.max(...data);
+        var bins = new Array(maxBins).fill(0);
+
+        // 计算价格区间
+        data.forEach(function(value) {
+            var binIndex = Math.floor((value - minValue) / binWidth);
+            if (binIndex >= maxBins) binIndex = maxBins - 1;
+            bins[binIndex]++;
+        });
+
+        return {
+            counts: bins  // 每个区间的数量
+        };
+    }
+
+    // 根据类型为每个类别分配不同的颜色
+    function getColorForType(type) {
+        var colorMap = {
+            'conventional': '#1f77b4',  // 蓝色
+            'organic': '#ff7f0e'         // 橙色
+        };
+        return colorMap[type] || '#2ca02c';  // 默认绿色
+    }
+</script>

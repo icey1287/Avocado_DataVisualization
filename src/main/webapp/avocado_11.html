@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>每月平均销量</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="chart1" style="height: 400px; width: 100%;"></div>
+<div id="chart2" style="height: 400px; width: 100%; margin-top: 20px;"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    这两张雷达图展示了不同类型牛油果的平均月收入情况。通过雷达图，用户可以查看传统牛油果和有机牛油果在不同月份的平均收入情况。雷达图的每个轴表示一个月份，轴的长度表示该月份的平均收入。用户可以通过鼠标悬停在雷达图上的某个点来查看具体的月份和平均收入。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart1 = echarts.init(document.getElementById('chart1'));
+    var myChart2 = echarts.init(document.getElementById('chart2'));
+
+    window.addEventListener('resize', function () {
+        myChart1.resize();
+        myChart2.resize();
+    });
+
+    myChart1.showLoading();
+    myChart2.showLoading();
+
+    $.ajax({
+        type: "GET",  // 使用 GET 请求
+        async: true,   // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart1.hideLoading();
+                myChart2.hideLoading();
+
+                // 按月份计算每个月的平均收入
+                var monthlyRevenue = {};
+                result.forEach(function(item) {
+                    var date = new Date(item.date);
+                    var month = (date.getMonth() + 1).toString().padStart(2, '0');  // 获取月份，01到12
+
+                    if (!monthlyRevenue[month]) {
+                        monthlyRevenue[month] = {
+                            conventional: 0,
+                            organic: 0,
+                            count: 0
+                        };
+                    }
+
+                    // 计算每月收入: averagePrice * totalVolume
+                    var revenue = item.averagePrice * item.totalVolume;
+
+                    if (item.type === "conventional") {
+                        monthlyRevenue[month].conventional += revenue;
+                    } else if (item.type === "organic") {
+                        monthlyRevenue[month].organic += revenue;
+                    }
+
+                    monthlyRevenue[month].count += 1;  // 每月的数据计数
+                });
+
+                // 计算每个月的平均收入
+                var months = [];
+                var conventionalAvgRevenue = [];
+                var organicAvgRevenue = [];
+
+                // 保证月份按 01 到 12 顺序排列
+                for (var month = 1; month <= 12; month++) {
+                    var monthStr = month.toString().padStart(2, '0');
+                    months.push(monthStr);
+                    conventionalAvgRevenue.push(monthlyRevenue[monthStr] ? monthlyRevenue[monthStr].conventional / monthlyRevenue[monthStr].count : 0);
+                    organicAvgRevenue.push(monthlyRevenue[monthStr] ? monthlyRevenue[monthStr].organic / monthlyRevenue[monthStr].count : 0);
+                }
+
+                // 配置雷达图（conventional 类型）
+                myChart1.setOption({
+                    title: {
+                        text: '传统牛油果每月平均销量',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        show: false  // 禁止鼠标悬停时显示信息
+                    },
+                    radar: {
+                        indicator: months.map(function(month) {
+                            return { name: month, max: Math.max(...conventionalAvgRevenue) };  // 设置最大值为该月最高收入
+                        }),
+                        radius: '70%',
+                    },
+                    series: [{
+                        name: 'Conventional',
+                        type: 'radar',
+                        data: [{
+                            value: conventionalAvgRevenue,
+                            name: 'Conventional',
+                            symbol: 'circle',
+                            symbolSize: 6
+                        }],
+                        itemStyle: {
+                            color: '#62BE51'
+                        },
+                        lineStyle: {
+                            width: 2,
+                            type: 'solid'
+                        },
+                        areaStyle: {
+                            opacity: 0.3,
+                            color: '#B8FC5F'
+                        },
+                        label: {
+                            show: true,
+                            formatter: function (params) {
+                                //保留两位小数
+
+                                return params.value.toFixed(2);  // 显示图表元素对应数值的值
+                            }
+                        }
+                    }]
+                });
+
+                // 配置雷达图（organic 类型）
+                myChart2.setOption({
+                    title: {
+                        text: '有机牛油果每月平均销量',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        show: false  // 禁止鼠标悬停时显示信息
+                    },
+                    radar: {
+                        indicator: months.map(function(month) {
+                            return { name: month, max: Math.max(...organicAvgRevenue) };  // 设置最大值为该月最高收入
+                        }),
+                        radius: '70%',
+                    },
+                    series: [{
+                        name: 'Organic',
+                        type: 'radar',
+                        data: [{
+                            value: organicAvgRevenue,
+                            name: 'Organic',
+                            symbol: 'circle',
+                            symbolSize: 6
+                        }],
+                        itemStyle: {
+                            color: '#FD833E'
+                        },
+                        lineStyle: {
+                            width: 2,
+                            type: 'solid'
+                        },
+                        areaStyle: {
+                            opacity: 0.3,
+                            color: '#FFB77D'
+                        },
+                        label: {
+                            show: true,
+                            formatter: function (params) {
+                                return params.value.toFixed(2);  // 显示图表元素对应数值的值
+                            }
+                        }
+                    }]
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart1.hideLoading();
+            myChart2.hideLoading();
+        }
+    });
+</script>

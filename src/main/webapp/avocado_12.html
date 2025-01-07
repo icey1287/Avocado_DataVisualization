@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>每月平均销量关系图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备两个具备大小（宽高）的Dom -->
+<div id="main1" style="height: 400px; width: 100%"></div>
+<div id="main2" style="height: 400px; width: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    这两张图表展示了不同类型牛油果的月总销量。通过折线图，用户可以查看传统牛油果和有机牛油果在不同月份的销量变化。每个类型的销量变化以不同大小的点表示，点的大小与销量成正比。图表的横坐标显示的是月份，纵坐标则显示的是销量。用户可以通过鼠标悬停在图表上的某个点来查看具体的月份和销量。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart1 = echarts.init(document.getElementById('main1'));
+    var myChart2 = echarts.init(document.getElementById('main2'));
+
+    window.addEventListener('resize', function () {
+        myChart1.resize();
+        myChart2.resize();
+    });
+
+    myChart1.showLoading();
+    myChart2.showLoading();
+
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart1.hideLoading();
+                myChart2.hideLoading();
+
+                // 按月份和类型分组数据
+                var monthlyVolumeConventional = new Array(12).fill(0); // 存储每个月的 Conventional 类型 TotalVolume
+                var monthlyVolumeOrganic = new Array(12).fill(0); // 存储每个月的 Organic 类型 TotalVolume
+
+                var axisData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+                // 按类型和月份累加 TotalVolume
+                result.forEach(function(item) {
+                    var month = new Date(item.date).getMonth(); // 获取月份（0-11）
+                    if (item.type === "conventional") {
+                        monthlyVolumeConventional[month] += item.totalVolume;
+                    } else if (item.type === "organic") {
+                        monthlyVolumeOrganic[month] += item.totalVolume;
+                    }
+                });
+
+                // 为两个图表准备数据
+                var dataConventional = monthlyVolumeConventional.map(function(item, i) {
+                    return {
+                        value: item,
+                        name: axisData[i]
+                    };
+                });
+
+                var dataOrganic = monthlyVolumeOrganic.map(function(item, i) {
+                    return {
+                        value: item,
+                        name: axisData[i]
+                    };
+                });
+
+                // 创建边，连接相邻月份
+                var linksConventional = [];
+                var linksOrganic = [];
+                for (var i = 0; i < dataConventional.length - 1; i++) {
+                    linksConventional.push({
+                        source: i,
+                        target: i + 1
+                    });
+                }
+                for (var i = 0; i < dataOrganic.length - 1; i++) {
+                    linksOrganic.push({
+                        source: i,
+                        target: i + 1
+                    });
+                }
+
+                // 设置 ECharts 图表配置（Conventional 类型）
+                myChart1.setOption({
+                    title: {
+                        text: '传统牛油果每月平均销量',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function (params) {
+                            return `${params.data.name}: Total Volume = ${params.data.value.toFixed(2)}`;
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: axisData
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
+                    series: [
+                        {
+                            type: 'graph',
+                            layout: 'none',
+                            coordinateSystem: 'cartesian2d',
+                            symbolSize: 40,
+                            label: {
+                                show: true
+                            },
+                            edgeSymbol: ['circle', 'arrow'],
+                            edgeSymbolSize: [4, 10],
+                            data: dataConventional,
+                            links: linksConventional,
+                            lineStyle: {
+                                color: '#ED7921'
+                            }
+                        }
+                    ]
+                });
+
+                // 设置 ECharts 图表配置（Organic 类型）
+                myChart2.setOption({
+                    title: {
+                        text: '有机牛油果每月平均销量',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function (params) {
+                            return `${params.data.name}: Total Volume = ${params.data.value.toFixed(2)}`;
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: axisData
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
+                    series: [
+                        {
+                            type: 'graph',
+                            layout: 'none',
+                            coordinateSystem: 'cartesian2d',
+                            symbolSize: 40,
+                            label: {
+                                show: true
+                            },
+                            edgeSymbol: ['circle', 'arrow'],
+                            edgeSymbolSize: [4, 10],
+                            data: dataOrganic,
+                            links: linksOrganic,
+                            lineStyle: {
+                                color: '#62BE51'
+                            }
+                        }
+                    ]
+                });
+
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart1.hideLoading();
+            myChart2.hideLoading();
+        }
+    });
+</script>

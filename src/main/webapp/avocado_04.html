@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果价格总趋势图（分离）</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+    <style>
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+        }
+        .chart {
+            width: 48%;
+            height: 400px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 容器，用于显示每个产品的面板 -->
+<div class="chart-container">
+    <div id="chart_conventional" class="chart"></div>
+    <div id="chart_organic" class="chart"></div>
+</div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图展示了常规牛油果与有机牛油果的价格趋势。通过两个折线图，分别展示了这两种类型的牛油果在不同日期的平均价格变动。图表中的x轴表示日期，y轴表示价格，折线的波动显示了不同时间段内两种牛油果的价格变化趋势。通过对比两者的价格，可以观察到它们在市场中的价格差异和走势规律。</div>
+<script type="text/javascript">
+    var myChartConventional = echarts.init(document.getElementById('chart_conventional'));
+    var myChartOrganic = echarts.init(document.getElementById('chart_organic'));
+
+    window.addEventListener('resize', function () {
+        myChartConventional.resize();
+        myChartOrganic.resize();
+    });
+
+    myChartConventional.showLoading();
+    myChartOrganic.showLoading();
+
+    $.ajax({
+        type: "GET",  // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChartConventional.hideLoading();
+                myChartOrganic.hideLoading();
+
+                // 处理数据
+                var dataByType = {
+                    'conventional': [],
+                    'organic': []
+                };
+
+                var allPrices = [];  // 用于获取所有价格的最大值和最小值
+
+                result.forEach(function(item) {
+                    var date = new Date(item.date);
+                    var formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+
+                    // 存储所有价格用于计算最大最小值
+                    allPrices.push(item.averagePrice);
+
+                    dataByType[item.type].push({
+                        date: formattedDate,
+                        averagePrice: item.averagePrice
+                    });
+                });
+
+                // 计算最大值和最小值
+                var maxPrice = Math.max(...allPrices);
+                var minPrice = Math.min(...allPrices);
+
+                // 构建 ECharts 图表的系列数据
+                var seriesDataConventional = dataByType.conventional.map(function(item) {
+                    return { name: item.date, value: item.averagePrice };
+                });
+
+                var seriesDataOrganic = dataByType.organic.map(function(item) {
+                    return { name: item.date, value: item.averagePrice };
+                });
+
+                // 设置 ECharts 图表配置
+                var commonYAxis = {
+                    type: 'value',
+                    min: minPrice,
+                    max: maxPrice,
+                    axisLabel: {
+                        formatter: '{value}'
+                    }
+                };
+
+                myChartConventional.setOption({
+                    title: {
+                        text: '常规牛油果价格趋势',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 18
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'line'
+                        }
+                    },
+                    legend: {
+                        data: ['Conventional'],
+                        bottom: '0%',
+                        textStyle: {
+                            fontSize: 12
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: dataByType.conventional.map(function(item) { return item.date; }),
+                        axisLabel: {
+                            rotate: 45,
+                            fontSize: 10
+                        }
+                    },
+                    yAxis: commonYAxis,  // 使用相同的纵坐标
+                    series: [{
+                        name: 'Conventional',
+                        type: 'line',
+                        data: seriesDataConventional,
+                        color: '#ED7921',
+                        lineStyle: {
+                            width: 2
+                        }
+                    }]
+                });
+
+                myChartOrganic.setOption({
+                    title: {
+                        text: '有机牛油果价格趋势',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 18
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'line'
+                        }
+                    },
+                    legend: {
+                        data: ['Organic'],
+                        bottom: '0%',
+                        textStyle: {
+                            fontSize: 12
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: dataByType.organic.map(function(item) { return item.date; }),
+                        axisLabel: {
+                            rotate: 45,
+                            fontSize: 10
+                        }
+                    },
+                    yAxis: commonYAxis,  // 使用相同的纵坐标
+                    series: [{
+                        name: 'Organic',
+                        type: 'line',
+                        data: seriesDataOrganic,
+                        color: '#62BE51',
+                        lineStyle: {
+                            width: 2
+                        }
+                    }]
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChartConventional.hideLoading();
+            myChartOrganic.hideLoading();
+        }
+    });
+</script>
+
+</body>
+</html>

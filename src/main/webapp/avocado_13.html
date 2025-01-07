@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果各地区总销量占比</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="height: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图表展示了按地区分类的销售份额数据。通过饼图的形式，用户可以直观地观察每个地区的销售份额，分析其在总销售额中的占比情况。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET",  // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 要忽略的地区列表
+                var excludedRegions = [
+                    "WestTexNewMexico", "TotalUS", "Southeast", "SouthCentral",
+                    "SouthCarolina", "Plains", "NorthernNewEngland", "Midsouth", "GreatLakes",
+                    "West","Northeast","California"
+                ];
+
+                // 按 region 分类数据，同时排除指定地区
+                var regionData = {};
+
+                result.forEach(function(item) {
+                    if (excludedRegions.includes(item.region)) {
+                        return;  // 跳过这些地区
+                    }
+
+                    if (!regionData[item.region]) {
+                        regionData[item.region] = 0;
+                    }
+                    regionData[item.region] += item.totalVolume;
+                });
+
+                // 格式化为饼图数据
+                var regionNames = Object.keys(regionData);
+                var regionVolumes = regionNames.map(function(region) {
+                    return {
+                        name: region,
+                        value: regionData[region]
+                    };
+                });
+
+                // 设置 ECharts 图表配置
+                myChart.setOption({
+                    title: {
+                        text: '牛油果各地区总销量占比',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: '{b}: {c} ({d}%)'  // 显示每个扇区的名称、值和百分比
+                    },
+                    series: [{
+                        name: 'Region Sales Share',
+                        type: 'pie',
+                        radius: '55%',
+                        center: ['50%', '60%'],
+                        data: regionVolumes,
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        label: {
+                            formatter: '{b}: {d}%',  // 显示名称和百分比
+                            fontSize: 14
+                        }
+                    }]
+                });
+
+                // 添加 tooltip 事件监听
+                myChart.on('mouseover', function (params) {
+                    if (params.componentType === 'series' && params.seriesType === 'pie') {
+                        var regionName = params.name;
+                        var value = params.value;
+                        var percentage = params.percent;
+
+                        // 动态更新页面底部的显示内容
+                        document.getElementById('dataDisplay').innerHTML =
+                            'Region: ' + regionName + ' | Sales: ' + value + ' | Share: ' + percentage.toFixed(2) + '%';
+                    }
+                });
+
+                // 添加鼠标移开事件来清除底部显示
+                myChart.on('mouseout', function () {
+                    document.getElementById('dataDisplay').innerHTML = '';
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>每月价格变化趋势</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%; height: 100%; display: flex; justify-content: space-around; flex-wrap: wrap; padding: 20px;">
+
+<!-- Conventional Avocados chart -->
+<div id="convChart" style="width: 48%; height: 400px;"></div>
+
+<!-- Organic Avocados chart -->
+<div id="orgChart" style="width: 48%; height: 400px;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图展示了常规（Conventional）和有机（Organic）牛油果在不同月份的平均价格趋势。通过对每个月的数据进行分类，图表清晰地显示了两种类型牛油果的价格变化模式。常规牛油果和有机牛油果的价格随着季节变化呈现出不同的波动，并且每个月的价格差异在图中得以呈现，帮助观察者识别出价格的季节性规律。
+</div>
+<script type="text/javascript">
+    var myChartConv = echarts.init(document.getElementById('convChart'));
+    var myChartOrg = echarts.init(document.getElementById('orgChart'));
+
+    // 动态调整图表大小
+    window.addEventListener('resize', function () {
+        myChartConv.resize();
+        myChartOrg.resize();
+    });
+
+    myChartConv.showLoading();
+    myChartOrg.showLoading();
+
+    $.ajax({
+        type: "GET",
+        async: true,
+        url: "avocado_01",  // 请求你的 Servlet URL
+        dataType: "json",
+        success: function (result) {
+            if (result) {
+                myChartConv.hideLoading();
+                myChartOrg.hideLoading();
+
+                // 提取每个月的数据并按类型分类
+                var convData = [];
+                var orgData = [];
+                var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                months.forEach(function(month, index) {
+                    var convAvg = 0;
+                    var orgAvg = 0;
+                    var convCount = 0;
+                    var orgCount = 0;
+
+                    // 遍历数据
+                    result.forEach(function(item) {
+                        var date = new Date(item.date);
+                        var monthIndex = date.getMonth(); // 获取月份索引（0-11）
+
+                        if (monthIndex === index) {
+                            if (item.type === "conventional") {
+                                convAvg += item.averagePrice;
+                                convCount++;
+                            } else if (item.type === "organic") {
+                                orgAvg += item.averagePrice;
+                                orgCount++;
+                            }
+                        }
+                    });
+
+                    // 计算每个月的平均价格
+                    if (convCount > 0) {
+                        convData.push({ month: month, avg: convAvg / convCount });
+                    } else {
+                        convData.push({ month: month, avg: 0 });
+                    }
+
+                    if (orgCount > 0) {
+                        orgData.push({ month: month, avg: orgAvg / orgCount });
+                    } else {
+                        orgData.push({ month: month, avg: 0 });
+                    }
+                });
+
+                // 计算 y 轴最大值，保证两个图表的纵坐标一致
+                var maxAvgPrice = Math.max(
+                    Math.max(...convData.map(function(d) { return d.avg; })),
+                    Math.max(...orgData.map(function(d) { return d.avg; }))
+                );
+
+                // 设置 Conventional Avocados chart
+                myChartConv.setOption({
+                    title: {
+                        text: '传统牛油果每月价格变化趋势',
+                        textStyle: {
+                            color: '#7FB3D5',
+                            fontSize: 18
+                        },
+                        left: 'center',
+                        bottom: '0%'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'line' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: {
+                            rotate: 45
+                        },
+                        name: 'Month'
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Average Price ($)',
+                        max: maxAvgPrice * 1.1  // 确保纵坐标最高值有一定的间隙
+                    },
+                    series: [{
+                        name: 'Average Price',
+                        type: 'line',
+                        data: convData.map(function (d) { return d.avg; }),
+                        lineStyle: { color: '#F35D5D' },
+                        symbol: 'circle',
+                        symbolSize: function (value) {
+                            return value * 10; // 根据平均值调整点的大小
+                        },
+                        itemStyle: {
+                            color: '#F35D5D'
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                borderWidth: 4
+                            }
+                        }
+                    }]
+                });
+
+                // 设置 Organic Avocados chart
+                myChartOrg.setOption({
+                    title: {
+                        text: '有机牛油果每月价格变化趋势',
+                        textStyle: {
+                            color: '#58D68D',
+                            fontSize: 18
+                        },
+                        left: 'center',
+                        bottom: '0%'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'line' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: {
+                            rotate: 45
+                        },
+                        name: 'Month'
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Average Price ($)',
+                        max: maxAvgPrice * 1.1  // 确保纵坐标最高值有一定的间隙
+                    },
+                    series: [{
+                        name: 'Average Price',
+                        type: 'line',
+                        data: orgData.map(function (d) { return d.avg; }),
+                        lineStyle: { color: '#58D68D' },
+                        symbol: 'circle',
+                        symbolSize: function (value) {
+                            return value * 10; // 根据平均值调整点的大小
+                        },
+                        itemStyle: {
+                            color: '#58D68D'
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                borderWidth: 4
+                            }
+                        }
+                    }]
+                });
+
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChartConv.hideLoading();
+            myChartOrg.hideLoading();
+        }
+    });
+</script>
+</body>
+</html>

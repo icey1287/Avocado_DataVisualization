@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果价格总趋势面积折线图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="height: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    这张图表展示了不同类型牛油果的价格趋势。通过折线图，用户可以查看传统牛油果和有机牛油果在不同时间点的价格波动。每个类型的价格以不同颜色的线条表示，传统牛油果使用橙色，有机牛油果使用绿色。图表的横坐标显示的是日期，纵坐标则显示的是牛油果的平均价格。</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 处理数据
+                var dataByType = {
+                    'conventional': [],
+                    'organic': []
+                };
+
+                result.forEach(function(item) {
+                    var date = new Date(item.date);
+                    var formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+
+                    dataByType[item.type].push({
+                        date: formattedDate,
+                        averagePrice: item.averagePrice
+                    });
+                });
+
+                // 构建 ECharts 图表的 series 数据
+                var seriesData = [];
+                for (var type in dataByType) {
+                    var data = dataByType[type].map(function(item) {
+                        return { name: item.date, value: item.averagePrice };
+                    });
+
+                    seriesData.push({
+                        name: type,
+                        type: 'line',  // 使用折线图
+                        areaStyle: { normal: {} },
+                        stack: 'total',
+                        data: data,
+                        color: type === 'conventional' ? '#ED7921' : '#62BE51',
+                        emphasis: {
+                            itemStyle: {
+                                color: type === 'conventional' ? '#FD833E' : '#B8FC5F'
+                            }
+                        }
+                    });
+                }
+
+                // 设置 ECharts 图表配置
+                myChart.setOption({
+                    animationDuration: 10000,
+                    title: {
+                        text: '牛油果价格总趋势面积折线图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'cross'  // 显示交叉线
+                        }
+                    },
+                    legend: {
+                        data: ['conventional', 'organic'],
+                        bottom: '12%',
+                        itemWidth: 10,
+                        itemHeight: 10,
+                        textStyle: {
+                            fontSize: 12
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: dataByType.conventional.map(function(item) { return item.date; }),  // 获取日期
+                        axisLabel: {
+                            rotate: 45,
+                            fontSize: 10
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            formatter: '{value}'
+                        }
+                    },
+                    series: seriesData
+                });
+
+                // 添加 tooltip 事件监听
+                myChart.on('mouseover', function (params) {
+                    if (params.componentType === 'series' && params.seriesType === 'line') {
+                        var seriesName = params.seriesName;
+                        var dataName = params.name;
+                        var value = params.value;
+
+                        // 动态更新页面底部的显示内容
+                        document.getElementById('dataDisplay').innerHTML =
+                            'Type: ' + seriesName + ' | Date: ' + dataName + ' | Price: ' + value;
+                    }
+                });
+
+                // 添加鼠标移开事件来清除底部显示
+                myChart.on('mouseout', function () {
+                    document.getElementById('dataDisplay').innerHTML = '';
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>

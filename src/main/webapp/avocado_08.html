@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果价格波动（月度对比）</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:1500px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="conventionalChart" style="height: 700px;width: 100%;"></div>
+<div id="organicChart" style="height: 700px;width: 100%;"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: -40%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    这两张图表展示了不同类型牛油果的价格波动情况。通过散点图，用户可以查看传统牛油果和有机牛油果在不同月份的价格波动。每个类型的价格波动以不同大小的点表示，点的大小与价格成正比。图表的横坐标显示的是月份，纵坐标则显示的是价格的标准差。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var conventionalChart = echarts.init(document.getElementById('conventionalChart'));
+    var organicChart = echarts.init(document.getElementById('organicChart'));
+
+    window.addEventListener('resize', function () {
+        conventionalChart.resize();
+        organicChart.resize();
+    });
+
+    conventionalChart.showLoading();
+    organicChart.showLoading();
+
+    $.ajax({
+        type: "GET",  // 使用 GET 请求
+        async: true,   // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                conventionalChart.hideLoading();
+                organicChart.hideLoading();
+
+                // 按月份和类型分类数据
+                var monthlyData = {
+                    "conventional": {},
+                    "organic": {}
+                };
+
+                result.forEach(function(item) {
+                    var date = new Date(item.date);
+                    var month = date.getMonth() + 1;  // 获取月份（1-12）
+                    var type = item.type;
+
+                    if (!monthlyData[type][month]) {
+                        monthlyData[type][month] = [];
+                    }
+
+                    monthlyData[type][month].push(item.averagePrice);
+                });
+
+                // 函数: 计算标准差和平均值
+                function calculateStats(data) {
+                    var months = [];
+                    var standardDevs = [];
+                    var avgPrices = [];
+
+                    for (var month = 1; month <= 12; month++) {
+                        if (data[month]) {
+                            var prices = data[month];
+                            var mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+                            var variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
+                            var stdDev = Math.sqrt(variance);
+
+                            months.push(month);
+                            avgPrices.push(mean);
+                            standardDevs.push(stdDev);
+                        } else {
+                            months.push(month);
+                            avgPrices.push(0);
+                            standardDevs.push(0);
+                        }
+                    }
+
+                    // 计算点的大小，以价格（averagePrice）作为基准
+                    var scatterData = months.map(function(month, index) {
+                        return [month, standardDevs[index], avgPrices[index] * 10];  // 将价格乘以10来调整点大小
+                    });
+
+                    return {months, scatterData};
+                }
+
+                // 获取标准差和平均价格数据
+                var conventionalStats = calculateStats(monthlyData["conventional"]);
+                var organicStats = calculateStats(monthlyData["organic"]);
+
+                // 设置 ECharts 配置
+                function setChartOption(chart, title, scatterData) {
+                    chart.setOption({
+                        title: {
+                            text: title,
+                            textStyle: {
+                                color: '#544f4f',
+                                fontSize: 25
+                            },
+                            left: 'center'
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            formatter: function (params) {
+                                var month = params.data[0];
+                                var stdDev = params.data[1];
+                                var price = params.data[2] / 10;  // 恢复价格的真实值
+                                return 'Month: ' + month + '<br>Price: ' + price.toFixed(2) + '<br>Std Dev: ' + stdDev.toFixed(2);
+                            }
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: scatterData.months-1,
+                            name: 'Month',
+                            nameLocation: 'middle',
+                            nameGap: 30
+                        },
+                        yAxis: {
+                            type: 'value',
+                            name: 'Standard Deviation',
+                            nameLocation: 'middle',
+                            nameGap: 30,
+                            min: 0
+                        },
+                        series: [
+                            {
+                                symbolSize: function (data) {
+                                    return data[2];  // 点的大小根据价格确定
+                                },
+                                data: scatterData.scatterData,
+                                type: 'scatter',
+                                name: 'Price Fluctuation',
+                                itemStyle: {
+                                    color: '#62BE51'
+                                }
+                            }
+                        ],
+                        legend: {
+                            data: ['Price Fluctuation'],
+                            bottom: 10
+                        }
+                    });
+                }
+
+                // 设置两个类型的图表
+                setChartOption(conventionalChart, '传统牛油果每月价格标准差', conventionalStats);
+                setChartOption(organicChart, '有机牛油果每月价格标准差', organicStats);
+
+                // 添加鼠标事件监听
+                // function addMouseEvents(chart) {
+                //     chart.on('mouseover', function (params) {
+                //         if (params.componentType === 'series' && params.seriesType === 'scatter') {
+                //             var month = params.data[0];
+                //             var stdDev = params.data[1];
+                //             var price = params.data[2] / 10;  // 恢复价格的真实值
+                //             document.getElementById('dataDisplay').innerHTML =
+                //                 'Month: ' + month + ' | Price: ' + price.toFixed(2) + ' | Std Dev: ' + stdDev.toFixed(2);
+                //         }
+                //     });
+                //
+                //     chart.on('mouseout', function () {
+                //         document.getElementById('dataDisplay').innerHTML = '';
+                //     });
+                // }
+                //
+                // // 为两个图表添加鼠标事件
+                // addMouseEvents(conventionalChart);
+                // addMouseEvents(organicChart);
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            conventionalChart.hideLoading();
+            organicChart.hideLoading();
+        }
+    });
+</script>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>品种按月销量热力图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="height: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图表展示了按品种分类的月销售数据。通过热力图的形式，用户可以直观地观察每个月每种品类的销售情况，分析其在不同月份的销售表现。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 按月份分组并汇总每种品类的销量
+                var monthlySales = {
+                    "1": { "4046": 0, "4225": 0, "4770": 0 },
+                    "2": { "4046": 0, "4225": 0, "4770": 0 },
+                    "3": { "4046": 0, "4225": 0, "4770": 0 },
+                    "4": { "4046": 0, "4225": 0, "4770": 0 },
+                    "5": { "4046": 0, "4225": 0, "4770": 0 },
+                    "6": { "4046": 0, "4225": 0, "4770": 0 },
+                    "7": { "4046": 0, "4225": 0, "4770": 0 },
+                    "8": { "4046": 0, "4225": 0, "4770": 0 },
+                    "9": { "4046": 0, "4225": 0, "4770": 0 },
+                    "10": { "4046": 0, "4225": 0, "4770": 0 },
+                    "11": { "4046": 0, "4225": 0, "4770": 0 },
+                    "12": { "4046": 0, "4225": 0, "4770": 0 }
+                };
+
+                result.forEach(function(item) {
+                    var month = new Date(item.date).getMonth() + 1; // 获取月份 (1-12)
+                    monthlySales[month]["4046"] += item.variety4046;
+                    monthlySales[month]["4225"] += item.variety4225;
+                    monthlySales[month]["4770"] += item.variety4770;
+                });
+
+                // 准备热力图的数据
+                var months = Object.keys(monthlySales); // 1-12月
+                var varieties = ["4046", "4225", "4770"]; // 品类
+                var heatmapData = [];
+
+                months.forEach(function(month) {
+                    varieties.forEach(function(variety, idx) {
+                        // Format sales value to 2 decimal places
+                        var sales = monthlySales[month][variety].toFixed(2);
+                        heatmapData.push([parseInt(month) - 1, idx, parseFloat(sales)]);
+                    });
+                });
+
+                // 设置 ECharts 图表配置
+                myChart.setOption({
+                    title: {
+                        text: '品种按月销量热力图(1-12)',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        position: 'top',
+                        formatter: function (params) {
+                            var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            var varieties = ['4046', '4225', '4770'];
+                            var month = monthNames[params.value[0]];
+                            var variety = varieties[params.value[1]];
+                            var sales = params.value[2].toFixed(2);  // Format sales in tooltip to 2 decimal places
+                            return month + '<br>' + variety + ': ' + sales;
+                        }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        top: '15%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        max: 'dataMax',
+                        type: 'category',
+                        data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                        axisLabel: {
+                            fontSize: 12
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ccc'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'category',
+                        data: ['4046', '4225', '4770'],
+                        axisLabel: {
+                            fontSize: 12
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ccc'
+                            }
+                        }
+                    },
+                    visualMap: {
+                        min: 1000000,
+                        max: 620000000, // 可根据实际数据调整最大值
+                        calculable: true,
+                        inRange: {
+                            color: ['#ffffff', '#ee5b1c'] // 色彩渐变，表示销量
+                        },
+                        orient: 'horizontal',
+                        bottom: '10%'
+                    },
+                    series: [{
+                        name: 'Sales Volume',
+                        type: 'heatmap',
+                        data: heatmapData,
+                        label: {
+                            show: true,
+                            fontSize: 12
+                        },
+                        itemStyle: {
+                            borderColor: '#fff',
+                            borderWidth: 1
+                        }
+                    }]
+                });
+
+                // 添加鼠标悬停事件
+                myChart.on('mouseover', function (params) {
+                    if (params.componentType === 'series' && params.seriesType === 'heatmap') {
+                        var month = params.value[0];
+                        var variety = params.value[1];
+                        var sales = params.value[2].toFixed(2);  // Format sales when hovering
+                        var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        var varieties = ['4046', '4225', '4770'];
+
+                        document.getElementById('dataDisplay').innerHTML =
+                            monthNames[month] + ' | ' + varieties[variety] + ' | ' + sales;
+                    }
+                });
+
+                // 添加鼠标移开事件来清除底部显示
+                myChart.on('mouseout', function () {
+                    document.getElementById('dataDisplay').innerHTML = '';
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>

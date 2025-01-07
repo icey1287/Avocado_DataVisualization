@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>每月总销量趋势</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="height: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图表展示了按月份和牛油果类型（常规型和有机型）分类的总销量数据。通过折线图的形式，用户可以直观地观察每个月每种类型的牛油果销量变化趋势，分析其在不同月份的销售情况。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 按月份和 type 分类数据
+                var monthlyData = {};
+                result.forEach(function(item) {
+                    var date = new Date(item.date);
+                    var yearMonth = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                    if (!monthlyData[yearMonth]) {
+                        monthlyData[yearMonth] = {};
+                    }
+
+                    if (!monthlyData[yearMonth][item.type]) {
+                        monthlyData[yearMonth][item.type] = {
+                            totalVolume: 0,
+                            count: 0
+                        };
+                    }
+
+                    monthlyData[yearMonth][item.type].totalVolume += item.totalVolume;
+                    monthlyData[yearMonth][item.type].count += 1;
+                });
+
+                // 计算每个月每个 type 的总销量
+                var dates = [];
+                var seriesData = [];
+                var types = ["conventional", "organic"]; // 根据你的数据定义类型
+
+                // 获取日期（月份）
+                for (var month in monthlyData) {
+                    dates.push(month);
+                }
+
+                // 获取每个类型的总销量数据
+                types.forEach(function(type) {
+                    var typeData = [];
+                    dates.forEach(function(date) {
+                        if (monthlyData[date] && monthlyData[date][type]) {
+                            typeData.push(monthlyData[date][type].totalVolume);
+                        } else {
+                            typeData.push(0); // 如果没有数据，设为0
+                        }
+                    });
+
+                    seriesData.push({
+                        name: type,
+                        type: 'line',
+                        data: typeData,
+                        smooth: true,
+                        lineStyle: {
+                            width: 2
+                        }
+                    });
+                });
+
+                // 设置 ECharts 图表配置
+                myChart.setOption({
+                    title: {
+                        text: '每月总销量趋势',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'cross'
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: dates,
+                        axisLabel: {
+                            rotate: 45,
+                            fontSize: 10
+                        },
+                        name: 'Month',
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            formatter: '{value}'
+                        },
+                        name: 'Total Volume',
+                    },
+                    series: seriesData,
+                    legend: {
+                        data: types, // 图例项
+                        bottom: 10, // 图例位置
+                        textStyle: {
+                            fontSize: 14
+                        }
+                    }
+                });
+
+                // 添加 tooltip 事件监听
+                myChart.on('mouseover', function (params) {
+                    if (params.componentType === 'series' && params.seriesType === 'line') {
+                        var seriesName = params.seriesName;
+                        var dataName = params.name;
+                        var value = params.value;
+
+                        // 动态更新页面底部的显示内容
+                        document.getElementById('dataDisplay').innerHTML =
+                            'Month: ' + dataName + ' | ' + seriesName + ' Total Volume: ' + value;
+                    }
+                });
+
+                // 添加鼠标移开事件来清除底部显示
+                myChart.on('mouseout', function () {
+                    document.getElementById('dataDisplay').innerHTML = '';
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>

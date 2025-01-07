@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>品种按月销量堆叠柱状图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="height: 100%"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图表展示了按品种分类的月销售数据。通过堆叠柱状图的形式，用户可以直观地观察每个月每种品类的销售情况，分析其在不同月份的销售表现。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 按月份分组并汇总每种品类的销量
+                var monthlySales = {
+                    "1": { "4046": 0, "4225": 0, "4770": 0 },
+                    "2": { "4046": 0, "4225": 0, "4770": 0 },
+                    "3": { "4046": 0, "4225": 0, "4770": 0 },
+                    "4": { "4046": 0, "4225": 0, "4770": 0 },
+                    "5": { "4046": 0, "4225": 0, "4770": 0 },
+                    "6": { "4046": 0, "4225": 0, "4770": 0 },
+                    "7": { "4046": 0, "4225": 0, "4770": 0 },
+                    "8": { "4046": 0, "4225": 0, "4770": 0 },
+                    "9": { "4046": 0, "4225": 0, "4770": 0 },
+                    "10": { "4046": 0, "4225": 0, "4770": 0 },
+                    "11": { "4046": 0, "4225": 0, "4770": 0 },
+                    "12": { "4046": 0, "4225": 0, "4770": 0 }
+                };
+
+                result.forEach(function(item) {
+                    var month = new Date(item.date).getMonth() + 1; // 获取月份 (1-12)
+                    monthlySales[month]["4046"] += item.variety4046;
+                    monthlySales[month]["4225"] += item.variety4225;
+                    monthlySales[month]["4770"] += item.variety4770;
+                });
+
+                // 准备堆叠柱状图的数据
+                var months = Object.keys(monthlySales);
+                var variety4046 = months.map(function(month) {
+                    return monthlySales[month]["4046"];
+                });
+                var variety4225 = months.map(function(month) {
+                    return monthlySales[month]["4225"];
+                });
+                var variety4770 = months.map(function(month) {
+                    return monthlySales[month]["4770"];
+                });
+
+                // 设置 ECharts 图表配置
+                myChart.setOption({
+                    title: {
+                        text: '品种按月销量堆叠柱状图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        formatter: function (params) {
+                            var month = params[0].name;
+                            var salesData = params.reduce(function (acc, item) {
+                                acc[item.seriesName] = item.value.toFixed(2);
+                                return acc;
+                            }, {});
+                            return month + '<br>' +
+                                '4046: ' + salesData["4046"] + '<br>' +
+                                '4225: ' + salesData["4225"] + '<br>' +
+                                '4770: ' + salesData["4770"];
+                        }
+                    },
+                    legend: {
+                        data: ['4046', '4225', '4770'],
+                        bottom: '0%',
+                        textStyle: {
+                            fontSize: 14
+                        }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: {
+                            fontSize: 12
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ccc'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Sales Volume',
+                        axisLabel: {
+                            formatter: '{value}'
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ccc'
+                            }
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                type: 'dashed'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: '4046',
+                            type: 'bar',
+                            stack: 'total',
+                            data: variety4046,
+                            itemStyle: {
+                                color: '#ED7921'
+                            }
+                        },
+                        {
+                            name: '4225',
+                            type: 'bar',
+                            stack: 'total',
+                            data: variety4225,
+                            itemStyle: {
+                                color: '#62BE51'
+                            }
+                        },
+                        {
+                            name: '4770',
+                            type: 'bar',
+                            stack: 'total',
+                            data: variety4770,
+                            itemStyle: {
+                                color: '#62A9F6'
+                            }
+                        }
+                    ]
+                });
+
+                // 添加鼠标悬停事件
+                myChart.on('mouseover', function (params) {
+                    if (params.componentType === 'series' && params.seriesType === 'bar') {
+                        var name = params.name;
+                        var value = params.value.toFixed(2);
+
+                        // 动态更新页面底部的显示内容
+                        document.getElementById('dataDisplay').innerHTML =
+                            'Month: ' + name + ' | Sales Volume: ' + value;
+                    }
+                });
+
+                // 添加鼠标移开事件来清除底部显示
+                myChart.on('mouseout', function () {
+                    document.getElementById('dataDisplay').innerHTML = '';
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>品种按月销量河流图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%; height:850px">
+<div id="main" style="height: 100%"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图表展示了按品种分类的月销售数据。通过主题河流图的形式，用户可以直观地观察每个月每种品类的销售情况，分析其在不同月份的销售表现。
+</div>
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET",
+        async: true,
+        url: "avocado_01",
+        dataType: "json",
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 按月份分组并汇总每种品类的销量
+                var monthlySales = {
+                    "1": { "4046": 0, "4225": 0, "4770": 0 },
+                    "2": { "4046": 0, "4225": 0, "4770": 0 },
+                    "3": { "4046": 0, "4225": 0, "4770": 0 },
+                    "4": { "4046": 0, "4225": 0, "4770": 0 },
+                    "5": { "4046": 0, "4225": 0, "4770": 0 },
+                    "6": { "4046": 0, "4225": 0, "4770": 0 },
+                    "7": { "4046": 0, "4225": 0, "4770": 0 },
+                    "8": { "4046": 0, "4225": 0, "4770": 0 },
+                    "9": { "4046": 0, "4225": 0, "4770": 0 },
+                    "10": { "4046": 0, "4225": 0, "4770": 0 },
+                    "11": { "4046": 0, "4225": 0, "4770": 0 },
+                    "12": { "4046": 0, "4225": 0, "4770": 0 }
+                };
+
+                result.forEach(function(item) {
+                    var month = new Date(item.date).getMonth() + 1;
+                    monthlySales[month]["4046"] += item.variety4046;
+                    monthlySales[month]["4225"] += item.variety4225;
+                    monthlySales[month]["4770"] += item.variety4770;
+                });
+
+                // 准备主题河流图的数据
+                var months = Object.keys(monthlySales);
+                var varieties = ["4046", "4225", "4770"];
+                var themeRiverData = [];
+
+                months.forEach(function(month) {
+                    varieties.forEach(function(variety) {
+                        var monthNum = parseInt(month);
+                        themeRiverData.push([
+                            monthNum,
+                            monthlySales[month][variety],
+                            variety
+                        ]);
+                    });
+                });
+
+                console.log('Theme River Data:', themeRiverData);
+
+                myChart.setOption({
+                    title: {
+                        text: '品种按月销量河流图(4046, 4225, 4770)',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'line',
+                            lineStyle: {
+                                color: 'rgba(0,0,0,0.2)',
+                                width: 1,
+                                type: 'solid'
+                            }
+                        },
+                        formatter: function (params) {
+                            if (params && params.length > 0) {
+                                var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                var result = monthNames[params[0].value[0] - 1] + '<br/>';
+                                params.forEach(function(param) {
+                                    // console.log('Param:', param);
+                                    result += param.name + ': ' + param.value[1].toFixed(2) + '<br/>';
+                                });
+                                return result;
+                            }
+                            return '';
+                        }
+                    },
+                    legend: {
+                        data: ['4046', '4225', '4770'],
+                        left: 'center',
+                        bottom: '10%'
+                    },
+                    singleAxis: {
+                        top: 50,
+                        bottom: 50,
+                        axisTick: {},
+                        axisLabel: {
+                            show: true,
+                            formatter: function (value) {
+                                var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                return monthNames[value - 1];
+                            }
+                        },
+                        type: 'category',
+                        boundaryGap: true,
+                        // 插入空项来偏移
+                        data: ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                        axisPointer: {
+                            animation: true,
+                            label: {
+                                show: true
+                            }
+                        },
+                        splitLine: {
+                            show: true,
+                            lineStyle: {
+                                type: 'dashed',
+                                opacity: 0.2
+                            }
+                        }
+                    },
+                    series: [{
+                        type: 'themeRiver',
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 20,
+                                shadowColor: 'rgba(0, 0, 0, 0.8)'
+                            }
+                        },
+                        label: {
+                            show: true
+                        },
+                        data: themeRiverData
+                    }]
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>
+</body>
+</html>

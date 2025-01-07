@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果季节性价格周期</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%; height: 100%; margin: 0; padding: 0; background-color: #FFF1E0;">
+
+<!-- 增大图表容器的大小 -->
+<div id="main" style="width: 100%; height: 80vh;"></div> <!-- 80vh表示占据屏幕的80%高度 -->
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图展示了按月份和类型（常规型和有机型）分类的牛油果价格变化趋势。通过极坐标柱状图的形式，用户可以直观地观察每个月每种类型的牛油果价格变化情况，分析其在不同月份的价格波动。
+</div>
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // 按照年份和类型进行数据分类
+                var types = ["conventional", "organic"];
+                var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                var seriesData = [];
+
+                types.forEach(function(type) {
+                    var yearsData = [];
+                    var errorBarsData = [];
+                    var typeData = result.filter(function(item) {
+                        return item.type === type;
+                    });
+
+                    months.forEach(function(month) {
+                        var monthData = typeData.filter(function(item) {
+                            var date = new Date(item.date);
+                            var monthStr = months[date.getMonth()]; // 获取月份字符串
+                            return monthStr === month;
+                        });
+
+                        if (monthData.length > 0) {
+                            var avgPrice = monthData.reduce(function(sum, item) {
+                                return sum + item.averagePrice;
+                            }, 0) / monthData.length;
+
+                            var se = Math.sqrt(monthData.reduce(function(sum, item) {
+                                return sum + Math.pow(item.averagePrice - avgPrice, 2);
+                            }, 0) / (monthData.length - 1)) / Math.sqrt(monthData.length);
+
+                            yearsData.push(avgPrice);
+                            errorBarsData.push(se);
+                        } else {
+                            yearsData.push(0); // 如果没有数据，则为0
+                            errorBarsData.push(0); // 没有误差
+                        }
+                    });
+
+                    // 为每个类型构建 ECharts 数据
+                    seriesData.push({
+                        name: type,
+                        type: 'bar',
+                        data: yearsData,
+                        coordinateSystem: 'polar',
+                        stack: 'total',
+                        barWidth: 30,  // 调整柱子的宽度
+                        itemStyle: {
+                            color: function(params) {
+                                // 根据类型设置不同的颜色
+                                if (type === "conventional") {
+                                    var colors = ['#ED7921', '#FD833E', '#F2A42D', '#F25F2D', '#F2442D'];
+                                    return colors[params.dataIndex % colors.length];
+                                } else {
+                                    var colors = ['#62BE51', '#95CFA4', '#4AFA76', '#57A6FC', '#B8FC5F'];
+                                    return colors[params.dataIndex % colors.length];
+                                }
+                            },
+                            opacity: type === "conventional" ? 0.7 : 0.8  // 不同的透明度
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            formatter: function (params) {
+                                var month = months[params.dataIndex];
+                                var value = params.value;
+                                var se = errorBarsData[params.dataIndex];
+                                return month + ': ' + value.toFixed(2) + ' ± ' + se.toFixed(2);
+                            }
+                        }
+                    });
+                });
+
+                // 设置 ECharts 配置
+                myChart.setOption({
+                    title: {
+                        text: '牛油果季节性价格周期',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 25
+                        },
+                        left: 'center'
+                    },
+                    angleAxis: {
+                        type: 'category',
+                        data: months,
+                        z: 10,
+                        axisLabel: {
+                            color: '#333',
+                            fontSize: 14 // 增加字体大小
+                        }
+                    },
+                    radiusAxis: {
+                        min: 0,
+                        // name: 'Price',
+                        nameLocation: 'middle',
+                        nameGap: 40,
+                        axisLabel: {
+                            color: '#333',
+                            fontSize: 14
+                        }
+                    },
+                    polar: {
+                        radius: ['30%', '80%'],  // 设置内外半径，使得各个扇形填满
+                    },
+                    series: seriesData,
+                    legend: {
+                        data: types,
+                        bottom: 10,
+                        textStyle: {
+                            fontSize: 16 // 增加图例文字的大小
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'line'
+                        }
+                    }
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart.hideLoading();
+        }
+    });
+</script>
+
+</body>
+</html>

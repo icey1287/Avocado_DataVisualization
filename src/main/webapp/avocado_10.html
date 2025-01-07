@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果平均价格（2015-2017）极坐标图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%; height: 1500px;">
+
+<!-- 为ECharts准备三个具备大小（宽高）的Dom，用于展示2015、2016、2017年 -->
+<div id="chart2015" style="height: 500px;"></div>
+<div id="chart2016" style="height: 500px;"></div>
+<div id="chart2017" style="height: 500px;"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: -45%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    这三张图表展示了2015、2016、2017年的牛油果平均价格变化趋势。通过极坐标图，用户可以直观地观察每年每个月的平均价格变化情况，分析其在不同月份的价格波动。图表上方有动态的提示框，用户可以查看每个月份对应的具体价格信息。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    // 初始化三个图表
+    var myChart2015 = echarts.init(document.getElementById('chart2015'));
+    var myChart2016 = echarts.init(document.getElementById('chart2016'));
+    var myChart2017 = echarts.init(document.getElementById('chart2017'));
+
+    window.addEventListener('resize', function () {
+        myChart2015.resize();
+        myChart2016.resize();
+        myChart2017.resize();
+    });
+
+    // 显示加载中
+    myChart2015.showLoading();
+    myChart2016.showLoading();
+    myChart2017.showLoading();
+
+    $.ajax({
+        type: "GET",
+        async: true,
+        url: "avocado_01",  // 请求URL
+        dataType: "json",
+        success: function (result) {
+            if (result) {
+                myChart2015.hideLoading();
+                myChart2016.hideLoading();
+                myChart2017.hideLoading();
+
+                // 创建空数据数组
+                var conventionalData2015 = [];
+                var organicData2015 = [];
+                var conventionalData2016 = [];
+                var organicData2016 = [];
+                var conventionalData2017 = [];
+                var organicData2017 = [];
+                var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                // 按年份分类和月份处理数据
+                result.forEach(function(item) {
+                    var date = new Date(item.date);
+                    var month = date.getMonth(); // 获取月份（0-11）
+                    var year = date.getFullYear(); // 获取年份
+
+                    // 过滤不同年份数据
+                    if (year === 2015) {
+                        if (item.type === "conventional") {
+                            conventionalData2015[month] = item.averagePrice;
+                        } else if (item.type === "organic") {
+                            organicData2015[month] = item.averagePrice;
+                        }
+                    } else if (year === 2016) {
+                        if (item.type === "conventional") {
+                            conventionalData2016[month] = item.averagePrice;
+                        } else if (item.type === "organic") {
+                            organicData2016[month] = item.averagePrice;
+                        }
+                    } else if (year === 2017) {
+                        if (item.type === "conventional") {
+                            conventionalData2017[month] = item.averagePrice;
+                        } else if (item.type === "organic") {
+                            organicData2017[month] = item.averagePrice;
+                        }
+                    }
+                });
+
+                // 设置2015年的图表
+                myChart2015.setOption({
+                    title: {
+                        text: '2015年牛油果平均价格极坐标图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 20
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'item'
+                    },
+                    legend: {
+                        data: ['Conventional', 'Organic'],
+                        bottom: 10,
+                        textStyle: {
+                            fontSize: 14
+                        },
+                        backgroundColor: '#FFF9F5',
+                        borderColor: '#000',
+                        borderWidth: 0.5
+                    },
+                    polar: {
+                        radius: '80%',
+                        center: ['50%', '50%']
+                    },
+                    angleAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: {
+                            fontSize: 12
+                        }
+                    },
+                    radiusAxis: {
+                        min: 0,
+                        max: 3,
+                        interval: 1,
+                        axisLabel: {
+                            fontSize: 10
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Conventional',
+                            type: 'line',
+                            coordinateSystem: 'polar',
+                            data: conventionalData2015,
+                            smooth: true,
+                            lineStyle: {
+                                color: '#407EAF',
+                                width: 2
+                            },
+                            symbol: 'circle',
+                            symbolSize: 5
+                        },
+                        {
+                            name: 'Organic',
+                            type: 'line',
+                            coordinateSystem: 'polar',
+                            data: organicData2015,
+                            smooth: true,
+                            lineStyle: {
+                                color: '#68B842',
+                                width: 2
+                            },
+                            symbol: 'circle',
+                            symbolSize: 5
+                        }
+                    ]
+                });
+
+                // 设置2016年的图表
+                myChart2016.setOption({
+                    title: {
+                        text: '2016年牛油果平均价格极坐标图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 20
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'item'
+                    },
+                    legend: {
+                        data: ['Conventional', 'Organic'],
+                        bottom: 10,
+                        textStyle: {
+                            fontSize: 14
+                        },
+                        backgroundColor: '#FFF9F5',
+                        borderColor: '#000',
+                        borderWidth: 0.5
+                    },
+                    polar: {
+                        radius: '80%',
+                        center: ['50%', '50%']
+                    },
+                    angleAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: {
+                            fontSize: 12
+                        }
+                    },
+                    radiusAxis: {
+                        min: 0,
+                        max: 3,
+                        interval: 1,
+                        axisLabel: {
+                            fontSize: 10
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Conventional',
+                            type: 'line',
+                            coordinateSystem: 'polar',
+                            data: conventionalData2016,
+                            smooth: true,
+                            lineStyle: {
+                                color: '#407EAF',
+                                width: 2
+                            },
+                            symbol: 'circle',
+                            symbolSize: 5
+                        },
+                        {
+                            name: 'Organic',
+                            type: 'line',
+                            coordinateSystem: 'polar',
+                            data: organicData2016,
+                            smooth: true,
+                            lineStyle: {
+                                color: '#68B842',
+                                width: 2
+                            },
+                            symbol: 'circle',
+                            symbolSize: 5
+                        }
+                    ]
+                });
+
+                // 设置2017年的图表
+                myChart2017.setOption({
+                    title: {
+                        text: '2017年牛油果平均价格极坐标图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 20
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'item'
+                    },
+                    legend: {
+                        data: ['Conventional', 'Organic'],
+                        bottom: 10,
+                        textStyle: {
+                            fontSize: 14
+                        },
+                        backgroundColor: '#FFF9F5',
+                        borderColor: '#000',
+                        borderWidth: 0.5
+                    },
+                    polar: {
+                        radius: '80%',
+                        center: ['50%', '50%']
+                    },
+                    angleAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: {
+                            fontSize: 12
+                        }
+                    },
+                    radiusAxis: {
+                        min: 0,
+                        max: 3,
+                        interval: 1,
+                        axisLabel: {
+                            fontSize: 10
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Conventional',
+                            type: 'line',
+                            coordinateSystem: 'polar',
+                            data: conventionalData2017,
+                            smooth: true,
+                            lineStyle: {
+                                color: '#407EAF',
+                                width: 2
+                            },
+                            symbol: 'circle',
+                            symbolSize: 5
+                        },
+                        {
+                            name: 'Organic',
+                            type: 'line',
+                            coordinateSystem: 'polar',
+                            data: organicData2017,
+                            smooth: true,
+                            lineStyle: {
+                                color: '#68B842',
+                                width: 2
+                            },
+                            symbol: 'circle',
+                            symbolSize: 5
+                        }
+                    ]
+                });
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart2015.hideLoading();
+            myChart2016.hideLoading();
+            myChart2017.hideLoading();
+        }
+    });
+</script>

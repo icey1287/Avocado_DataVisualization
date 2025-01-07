@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>各州销量动态排序柱状图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- Prepare a div container for ECharts -->
+<div id="main" style="height: 100%"></div>
+
+<!-- Bottom container for data display -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation" style="position: absolute; bottom: 5%; width: 100%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    该图表显示了排名前10的地区每月牛油果的总销售量。条形图动态更新，显示当月牛油果的总销量。排名前10位的地区是根据当月牛油果销售总量确定的。图表以动画形式显示前10大地区随时间的变化。
+</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    var myChart = echarts.init(document.getElementById('main'));
+
+    window.addEventListener('resize', function () {
+        myChart.resize();
+    });
+
+    myChart.showLoading();
+
+    // Custom color for regions
+    const regionColors = {
+        "Albany": "#FF5733",
+        "Atlanta": "#33FF57",
+        "BaltimoreWashington": "#5733FF",
+        "Boise": "#FF33A1",
+        "Boston": "#33A1FF",
+        "BuffaloRochester": "#A133FF",
+        "California": "#FF7F0E",
+        "Charlotte": "#1f77b4",
+        "Chicago": "#2ca02c",
+        "CincinnatiDayton": "#d62728",
+        "Columbus": "#9467bd",
+        "DallasFtWorth": "#8c564b",
+        "Denver": "#e377c2",
+        "Detroit": "#7f7f7f",
+        "HarrisburgScranton": "#ff9e00",
+        "HartfordSpringfield": "#ff2d00",
+        "Houston": "#ff3399",
+        "Indianapolis": "#7a8dff",
+        "Jacksonville": "#a4e200",
+        "LasVegas": "#bada55",
+        "LosAngeles": "#ff6347",
+        "Louisville": "#ff1493",
+        "MiamiFtLauderdale": "#9b30ff",
+        "Nashville": "#ff6666",
+        "NewOrleansMobile": "#9acd32",
+        "NewYork": "#ff00ff",
+        "Orlando": "#c71585",
+        "Philadelphia": "#20b2aa",
+        "PhoenixTucson": "#dcdcdc",
+        "Pittsburgh": "#add8e6",
+        "Portland": "#f08080",
+        "RaleighGreensboro": "#ff6347",
+        "RichmondNorfolk": "#dda0dd",
+        "Roanoke": "#ff4500",
+        "Sacramento": "#ff8c00",
+        "SanDiego": "#d3d3d3",
+        "SanFrancisco": "#a9a9a9",
+        "Seattle": "#bc8f8f",
+        "Spokane": "#ff1493",
+        "StLouis": "#d2691e",
+        "Syracuse": "#00008b",
+        "Tampa": "#006400"
+    };
+
+    // Dummy data for testing, you can replace this with your actual JSON source
+    $.ajax({
+        type: "GET", // Using GET request
+        async: true,  // Asynchronous request
+        url: "avocado_01",  // Replace with your actual URL
+        dataType: "json",  // Expecting JSON data
+        success: function (result) {
+            if (result) {
+                myChart.hideLoading();
+
+                // Group data by month and region
+                var monthlyData = {};
+                var months = [];
+                var regions = [];
+                var excludedRegions = [
+                    "WestTexNewMexico", "TotalUS", "Southeast", "SouthCentral",
+                    "SouthCarolina", "Plains", "NorthernNewEngland", "Midsouth", "GreatLakes",
+                    "West","Northeast","California"
+                ];
+                result.forEach(function (item) {
+                    if (excludedRegions.includes(item.region)) {
+                        return;  // 跳过这些地区
+                    }
+                    var date = new Date(item.date);
+                    var yearMonth = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`; // "YYYY-MM"
+                    var month = yearMonth; // Use "YYYY-MM" as the month key
+                    var region = item.region;
+
+                    if (!monthlyData[month]) {
+                        monthlyData[month] = {};
+                    }
+
+                    if (!monthlyData[month][region]) {
+                        monthlyData[month][region] = { totalVolume: 0 };
+                    }
+
+                    monthlyData[month][region].totalVolume += item.totalVolume;
+
+                    if (!months.includes(month)) {
+                        months.push(month);
+                    }
+                    if (!regions.includes(region)) {
+                        regions.push(region);
+                    }
+                });
+
+                months.sort();  // Sort months in ascending order
+
+                // Function to get the top 10 regions based on total volume for the current month
+                function getTop10Regions(month) {
+                    // Sort regions by total volume for the current month in descending order
+                    const sortedRegions = Object.keys(monthlyData[month])
+                        .map(region => ({
+                            region: region,
+                            totalVolume: monthlyData[month][region].totalVolume
+                        }))
+                        .sort((a, b) => b.totalVolume - a.totalVolume);  // Sort by totalVolume
+
+                    // Return top 10 regions (or less if there are not enough regions)
+                    return sortedRegions.slice(0, 10);
+                }
+
+                // Set up the initial chart option
+                var option = {
+                    grid: {
+                        top: 10,
+                        bottom: 30,
+                        left: 150,
+                        right: 80
+                    },
+                    xAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            formatter: function (n) {
+                                return Math.round(n);
+                            }
+                        },
+                        name: 'Total Volume',
+                    },
+                    yAxis: {
+                        type: 'category',
+                        inverse: true,
+                        axisLabel: {
+                            fontSize: 14
+                        }
+                    },
+                    series: [
+                        {
+                            realtimeSort: true,
+                            seriesLayoutBy: 'column',
+                            type: 'bar',
+                            itemStyle: {
+                                color: function (param) {
+                                    return regionColors[param.value[0]] || '#5470c6';
+                                }
+                            },
+                            encode: {
+                                x: 1,
+                                y: 0
+                            },
+                            label: {
+                                show: true,
+                                position: 'right',
+                                fontFamily: 'monospace',
+                                valueAnimation: true
+                            }
+                        }
+                    ],
+                    animationDuration: 1000,
+                    animationDurationUpdate: 400, // Update frequency
+                    animationEasing: 'linear',
+                    animationEasingUpdate: 'linear',
+                    graphic: {
+                        elements: [
+                            {
+                                type: 'text',
+                                right: 160,
+                                bottom: 60,
+                                style: {
+                                    text: months[0],  // Display the first month initially
+                                    font: 'bolder 60px monospace',
+                                    fill: 'rgba(100, 100, 100, 0.25)'
+                                },
+                                z: 100
+                            }
+                        ]
+                    }
+                };
+
+                myChart.setOption(option);
+
+                // Update chart for each month
+                let startIndex = 0;
+                const updateFrequency = 1000;  // Interval between updates (in ms)
+                for (let i = startIndex; i < months.length - 1; ++i) {
+                    (function (i) {
+                        setTimeout(function () {
+                            updateMonth(months[i]);
+                        }, (i - startIndex) * updateFrequency);
+                    })(i);
+                }
+
+                function updateMonth(month) {
+                    // Get the top 10 regions for the current month
+                    let top10Regions = getTop10Regions(month);
+
+                    // Prepare data for the top 10 regions
+                    let source = top10Regions.map(function (regionData) {
+                        return [regionData.region, regionData.totalVolume];
+                    });
+
+                    // Update the series data for the current month
+                    option.series[0].data = source;
+
+                    // Update the graphic text (month)
+                    option.graphic.elements[0].style.text = month;
+
+                    // Update chart with the new data
+                    myChart.setOption(option);
+
+
+                }
+            }
+        },
+        error: function (errorMsg) {
+            alert("Failed to fetch data!");
+            myChart.hideLoading();
+        }
+    });
+</script>

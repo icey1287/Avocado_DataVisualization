@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>牛油果价格频率分布图</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/echarts.min.js"></script>
+</head>
+
+<body style="width: 100%;height:850px">
+
+<!-- 为 ECharts 准备两个具备大小（宽高）的 DOM -->
+<div id="chart1" style="height: 400px; width: 100%; margin-bottom: 20px;"></div>
+<div id="chart2" style="height: 400px; width: 100%;"></div>
+
+<!-- 页面底部显示名称和数据的容器 -->
+<div id="dataDisplay" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 16px; color: #333;"></div>
+<div id="staticExplanation1" style="position: absolute; bottom: 10%; width: 90%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    第一个图表展示了传统牛油果的价格分布情况。图表以价格为横坐标，显示了每个价格区间内的牛油果数量密度。价格的范围从0.44美元到3.25美元，通过平滑的曲线表示价格的频率分布。此图的颜色为蓝色，表示传统类型牛油果价格的密度。</div>
+<div id="staticExplanation2" style="position: absolute; bottom: 5%; width: 90%; text-align: center; font-size: 14px; color: #777; background-color: #f8f8f8; padding: 10px;">
+    第二个图表展示了有机牛油果的价格分布情况。与第一个图表相同，横坐标为价格，纵坐标为数量密度。图表中的颜色为浅绿色，表示有机类型牛油果价格的密度分布。</div>
+</body>
+</html>
+
+<script type="text/javascript">
+    // 创建 ECharts 实例
+    var myChart1 = echarts.init(document.getElementById('chart1'));
+    var myChart2 = echarts.init(document.getElementById('chart2'));
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', function () {
+        myChart1.resize();
+        myChart2.resize();
+    });
+
+    // 显示图表加载前的动画
+    myChart1.showLoading();
+    myChart2.showLoading();
+
+    // 发起 Ajax 请求获取从后台返回的 JSON 数据
+    $.ajax({
+        type: "GET", // 使用 GET 请求
+        async: true,  // 异步请求
+        url: "avocado_01",  // 请求 URL（根据你的 Servlet URL）
+        dataType: "json",  // 返回数据类型
+        success: function (result) {
+            if (result) {
+                // 隐藏加载动画
+                myChart1.hideLoading();
+                myChart2.hideLoading();
+
+                // 分类数据，根据 'type' 分类
+                var dataByType = {
+                    "conventional": [],
+                    "organic": []
+                };
+
+                // 收集价格数据
+                result.forEach(function(item) {
+                    if (item.type === 'conventional') {
+                        dataByType['conventional'].push(item.averagePrice);
+                    } else if (item.type === 'organic') {
+                        dataByType['organic'].push(item.averagePrice);
+                    }
+                });
+
+                // 函数：计算价格的频率分布
+                function getDensityData(prices) {
+                    var densityData = [];
+                    var minPrice = 0.44;
+                    var maxPrice = 3.25;
+                    var step = (maxPrice - minPrice) / 100; // 设定平滑密度图的步长
+
+                    // 生成密度分布
+                    for (var i = 0; i <= 100; i++) {
+                        var threshold = minPrice + step * i;
+                        var count = prices.filter(function(price) {
+                            return price >= threshold && price < (threshold + step);
+                        }).length;
+                        densityData.push({
+                            value: count,
+                            price: threshold.toFixed(2)
+                        });
+                    }
+
+                    return densityData;
+                }
+
+                // 计算 density 数据
+                var conventionalDensity = getDensityData(dataByType['conventional']);
+                var organicDensity = getDensityData(dataByType['organic']);
+
+                // 获取两个数据集的价格最小值和最大值
+                var minPrice = Math.min(Math.min(...dataByType['conventional']), Math.min(...dataByType['organic']));
+                var maxPrice = Math.max(Math.max(...dataByType['conventional']), Math.max(...dataByType['organic']));
+
+                // 渲染第一个图表（conventional 类型）
+                myChart1.setOption({
+                    title: {
+                        text: '牛油果价格频率分布图',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 20
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'line' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: conventionalDensity.map(function(item) { return item.price; }),
+                        axisLabel: { rotate: 45 },
+                        min: minPrice.toFixed(2), // 设置横坐标最小值
+                        max: maxPrice.toFixed(2)  // 设置横坐标最大值
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { formatter: '{value}' }
+                    },
+                    series: [{
+                        name: 'Conventional Price Density',
+                        type: 'line',
+                        data: conventionalDensity.map(function(item) { return item.value; }),
+                        smooth: true,  // 平滑曲线
+                        color: '#7cc8f6'
+                    }],
+                    legend: {
+                        data: ['Conventional Price Density'],
+                        bottom: '0%'
+                    }
+                });
+
+                // 渲染第二个图表（organic 类型）
+                myChart2.setOption({
+                    title: {
+                        text: 'Organic Avocado Price Frequency',
+                        textStyle: {
+                            color: '#544f4f',
+                            fontSize: 20
+                        },
+                        left: 'center'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'line' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: organicDensity.map(function(item) { return item.price; }),
+                        axisLabel: { rotate: 45 },
+                        min: minPrice.toFixed(2), // 设置横坐标最小值
+                        max: maxPrice.toFixed(2)  // 设置横坐标最大值
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { formatter: '{value}' }
+                    },
+                    series: [{
+                        name: 'Organic Price Density',
+                        type: 'line',
+                        data: organicDensity.map(function(item) { return item.value; }),
+                        smooth: true,  // 平滑曲线
+                        color: '#9df6f1'
+                    }],
+                    legend: {
+                        data: ['Organic Price Density'],
+                        bottom: '0%'
+                    }
+                });
+
+                // 添加 tooltip 事件监听
+                myChart1.on('mouseover', showTooltip);
+                myChart2.on('mouseover', showTooltip);
+            }
+        },
+        error: function (errorMsg) {
+            alert("图表请求数据失败!");
+            myChart1.hideLoading();
+            myChart2.hideLoading();
+        }
+    });
+
+
+
+    // 添加窗口大小调整监听器
+    window.onresize = function() {
+        myChart1.resize();
+        myChart2.resize();
+    };
+</script>
